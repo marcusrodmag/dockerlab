@@ -1,0 +1,13 @@
+FROM nginx:1.16-alpine
+
+RUN apk update && \
+    apk add --no-cache curl && \
+    apk add --no-cache curl && \
+    apk add --no-cache openrc && \
+    apk add --no-cache sysklogd && \
+    rc-update add sysklogd boot && \
+    echo  *.* @graylog:1514 >> /etc/syslog.conf  && \
+    echo  Graylog configured! && \
+    rm -rf /var/cache/apk/*
+    
+EXPOSE 80

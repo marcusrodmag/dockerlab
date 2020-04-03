@@ -1,0 +1,74 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sonar
+  namespace: default
+  labels:
+    app: sonar
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sonar
+  template:
+    metadata:
+      labels:
+        app: sonar
+    spec:
+      containers:
+      - name: sonar
+        image: sonarqube:8.2-community
+        resources:
+          limits:
+            cpu: 800m
+            memory: 1990Mi
+          requests:
+            cpu: 500m
+            memory: 500Mi
+      initContainers:
+      - name: fix-file-max
+        image: busybox
+        command: ["sh", "-c", "sysctl -w fs.file-max=65536"]
+        securityContext:
+          privileged: true
+      - name: increase-vm-max-map
+        image: busybox
+        command: ["sysctl", "-w", "vm.max_map_count=262144"]
+        securityContext:
+          privileged: true
+      - name: increase-fd-ulimit
+        image: busybox
+        command: ["sh", "-c", "ulimit -n 65536"]
+        securityContext:
+          privileged: true
+      - name: increase-u-ulimit
+        image: busybox
+        command: ["sh", "-c", "ulimit -u 4096"]
+        securityContext:
+          privileged: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sonar
+  namespace: default
+  labels:
+    app: sonar
+spec:
+  selector:
+    app: sonar
+  type: LoadBalancer
+  ports:
+    - port: 9000
+      name: sonarui
+---
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: sonar
+  namespace: default
+spec:
+  backend:
+    serviceName: sonar
+    servicePort: 9000

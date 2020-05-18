@@ -1,0 +1,119 @@
+---
+# Zookeeper
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: zookeeper
+spec:
+  selector:
+    matchLabels:
+      app: zookeeper # has to match .spec.template.metadata.labels
+  serviceName: zookeeper
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: zookeeper
+      annotations:
+        pod.alpha.kubernetes.io/initialized: "true"
+    spec:
+      containers:
+      - name: zookeeper
+        imagePullPolicy: Always
+        image: confluentinc/cp-zookeeper:5.1.4
+        ports:
+        - containerPort: 32181
+          name: client
+        env:
+        - name: ZOOKEEPER_CLIENT_PORT
+          value: "32181"
+        - name: ZOOKEEPER_TICK_TIME
+          value: "2000"
+  volumeClaimTemplates:
+  - metadata:
+      name: datadir
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zookeeper
+  labels:
+    app: zookeeper
+spec:
+  ports:
+  - port: 32181
+    name: clientport
+  type: LoadBalancer
+  selector:
+    app: zookeeper
+---
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: sonar
+  namespace: default
+spec:
+  backend:
+    serviceName: zookeeper
+    servicePort: 32181
+---
+# Kafka
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-server
+spec:
+  selector:
+    matchLabels:
+      app: kafka-server
+  template:
+    metadata:
+      labels:
+        app: kafka-server
+    spec:
+      containers:
+      - name: kafka-server
+        image: confluentinc/cp-kafka:5.1.4
+        ports:
+        - containerPort: 29092
+          name: serverport
+        env:
+        - name: KAFKA_BROKER_ID
+          value: "1"
+        - name: KAFKA_ZOOKEEPER_CONNECT
+          value: "zookeeper:32181"
+        - name: KAFKA_ADVERTISED_LISTENERS
+          value: "PLAINTEXT://localhost:29092"
+        - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
+          value: "1"
+        - name: SCHEMA_REGISTRY_MASTER_ELIGIBILITY
+          value: "false"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-server
+  labels:
+    app: kafka-server
+spec:
+  ports:
+  - port: 29092
+    name: serverport
+  type: LoadBalancer
+  selector:
+    app: kafka-server
+---
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: kafka-server
+  namespace: default
+spec:
+  backend:
+    serviceName: kafka-server
+    servicePort: 29092
